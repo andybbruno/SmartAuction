@@ -1,6 +1,6 @@
 pragma solidity ^0.5.1;
 
-import "./AbstractAuction.sol";
+import "./DutchAuction.sol";
 import "./Auction.sol";
 
 contract AuctionHouse {
