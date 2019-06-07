@@ -1,64 +1,40 @@
 pragma solidity ^0.5.1;
 
-interface PriceStrategy{
-    function decrease() external returns (uint);
-}
-
 contract Strategy {
-    uint initialPrice;
-    uint counter;
-    
-    constructor(uint _initialPrice) public {
-        require(_initialPrice > 1);
-        initialPrice = _initialPrice;
-        counter = 0;
+    function getPrice(uint _actualPrice, uint _deltaBlocks) public view returns (uint);
+}
+
+//dura fino a : x blocchi
+contract NormalStrategy is Strategy {
+    function getPrice(uint _actualPrice, uint _deltaBlocks) public view returns (uint) {
+        uint tmp = _actualPrice - _deltaBlocks;
+        
+        //in case of underflow
+        if (tmp > _actualPrice) return 0;
+        else return tmp;
     }
 }
 
-contract NormalStrategy is Strategy, PriceStrategy {
-    constructor (uint initPrice) Strategy(initPrice) public {}
-    
-    function decrease() external returns (uint) {
-        counter++;
-        return initialPrice - counter;
+//dura fino a : x/2 blocchi
+contract FastStrategy is Strategy {
+    function getPrice(uint _actualPrice, uint _deltaBlocks) public view returns (uint) {
+        uint tmp = _actualPrice - (2*_deltaBlocks);
+        
+        //in case of underflow
+        if (tmp > _actualPrice) return 0;
+        else return tmp;
     }
 }
 
-contract FastStrategy is Strategy, PriceStrategy {
-    constructor (uint initPrice) Strategy(initPrice) public {}
-    
-    function decrease() external returns (uint) {
-        counter++;
-        return initialPrice - ((counter**2) / 2);
+//dura fino a : 2x blocchi
+contract SlowStrategy is Strategy {
+    function getPrice(uint _actualPrice, uint _deltaBlocks) public view returns (uint) {
+        uint tmp = _actualPrice - (_deltaBlocks/2);
+        
+        //in case of underflow
+        if (tmp > _actualPrice) return 0;
+        else return tmp;
     }
 }
-
-contract VeryFastStrategy is Strategy, PriceStrategy {
-    constructor (uint initPrice) Strategy(initPrice) public {}
-    
-    function decrease() external returns (uint) {
-        counter++;
-        return initialPrice - ((counter**3) / 2);
-    }
-}
-
-contract SlowStrategy is Strategy, PriceStrategy {
-    constructor (uint initPrice) Strategy(initPrice) public {}
-    
-    function decrease() external returns (uint) {
-        counter++;
-        return initialPrice - (3 * counter / 5);
-    }
-}
-
-contract VerySlowStrategy is Strategy, PriceStrategy {
-    constructor (uint initPrice) Strategy(initPrice) public {}
-    
-    function decrease() external returns (uint) {
-        counter++;
-        return initialPrice - (2 * counter / 5);
-    }
-}
-
 
 
