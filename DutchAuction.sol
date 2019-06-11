@@ -60,7 +60,7 @@ contract DutchAuction is Auction {
         state = State.Validating;
     }
 
-    function finishAuction() public onlySeller {
+    function finalize() public onlySeller {
         require(state == State.Validating);
 
         //faccio passare 6 blocchi così mi assicuro di stare sulla catena più lunga
