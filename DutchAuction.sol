@@ -68,7 +68,7 @@ contract DutchAuction is Auction {
         require(block.number - winnerBlock > 6);
 
         state = State.Finished;
-        emit auctionFinished(description.winnerAddress, description.winnerBid);
+        emit auctionFinished(description.winnerAddress, description.winnerBid, address(this).balance);
 
         description.seller.transfer(description.winnerBid);
 

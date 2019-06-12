@@ -139,7 +139,7 @@ contract VickreyAuction is Auction {
         description.seller.transfer(description.winnerBid);
         
         phase = Phase.Finished;
-        emit auctionFinished(description.winnerAddress, description.winnerBid);
+        emit auctionFinished(description.winnerAddress, description.winnerBid, address(this).balance);
         
     }
 

@@ -20,7 +20,7 @@ contract Auction {
 
 
     event auctionStarted();
-    event auctionFinished(address winnerAddress, uint winnerBid);
+    event auctionFinished(address winnerAddress, uint winnerBid, uint surplusFounds);
 
 
     function activateAuction() public;
