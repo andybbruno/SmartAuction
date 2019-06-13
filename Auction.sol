@@ -1,12 +1,6 @@
 pragma solidity ^ 0.5.1;
 
-//TEMPLATE METHOD PATTERN
 contract Auction {
-
-    modifier onlySeller() {
-        require(msg.sender == description.seller);
-        _;
-    }
 
     struct Description {
         address payable seller;
@@ -19,6 +13,11 @@ contract Auction {
     Description public description;
 
 
+    modifier onlySeller() {
+        require(msg.sender == description.seller, "Only the seller can run this function");
+        _;
+    }
+
     event auctionStarted();
     event auctionFinished(address winnerAddress, uint winnerBid, uint surplusFounds);
 
@@ -26,3 +25,4 @@ contract Auction {
     function activateAuction() public;
     function finalize() public;
 }
+
