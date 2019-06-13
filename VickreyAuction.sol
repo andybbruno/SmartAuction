@@ -129,14 +129,16 @@ contract VickreyAuction is Auction {
         require(phase == Phase.Opening);
         require((block.number - startPhaseBlock) > opening_len);
 
-        description.winnerAddress = highestBidder;
-        description.winnerBid = secondHighestBid;
+        if (highestBidder != address(0)) {
+            description.winnerAddress = highestBidder;
+            description.winnerBid = secondHighestBid;
+            
+            //refund the winner
+            highestBidder.transfer(highestBid - secondHighestBid);
         
-        //refund the winner
-        highestBidder.transfer(highestBid - secondHighestBid);
-    
-        //send ehter to the seller of the item
-        description.seller.transfer(description.winnerBid);
+            //send ehter to the seller of the item
+            description.seller.transfer(description.winnerBid);
+        }
         
         phase = Phase.Finished;
         emit auctionFinished(description.winnerAddress, description.winnerBid, address(this).balance);
@@ -146,14 +148,13 @@ contract VickreyAuction is Auction {
 
 
 
-    function bid(uint _bidValue, bytes32 _bidHash) public duringCommitment payable {
+    function bid(bytes32 _bidHash) public duringCommitment payable {
         require(msg.value >= min_deposit);
         
         //ensure that is the sender haven't sent another bid previously
         require(bids[msg.sender].value == 0);
         
         Bid memory _bid;
-        _bid.value = _bidValue;
         _bid.hash = _bidHash;
         _bid.deposit = msg.value;
 
@@ -186,6 +187,7 @@ contract VickreyAuction is Auction {
         msg.sender.transfer(deposit);
         
         //serve??
+        bids[msg.sender].value = msg.value;
         bids[msg.sender].nonce = _nonce;
 
         //if it is the first opening

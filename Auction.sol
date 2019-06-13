@@ -24,4 +24,5 @@ contract Auction {
 
 
     function activateAuction() public;
+    function finalize() public;
 }
