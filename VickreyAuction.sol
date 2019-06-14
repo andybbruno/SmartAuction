@@ -32,7 +32,7 @@ contract VickreyAuction is Auction {
         bytes32 hash;
         uint deposit;
     }
-    
+
     mapping(address => Bid) bids;
 
     event withdrawalStarted();
@@ -49,11 +49,11 @@ contract VickreyAuction is Auction {
         uint _withdrawal_len,
         uint _opening_len
     ) public {
-        require(_reservePrice > 0);
-        require(_min_deposit >= _reservePrice);
-        require(_commitment_len > 0);
-        require(_withdrawal_len > 0);
-        require(_opening_len > 0);
+        require(_reservePrice > 0, "Reserve price should be greater than zero.");
+        require(_min_deposit >= _reservePrice, "The deposit should be greater than the reserve price");
+        require(_commitment_len > 0, "The lenght of commitment should be greater than zero.");
+        require(_withdrawal_len > 0, "The lenght of withdrawal should be greater than zero.");
+        require(_opening_len > 0, "The lenght of opening should be greater than zero.");
 
         description.seller = msg.sender;
         description.itemName = _itemName;
@@ -71,28 +71,27 @@ contract VickreyAuction is Auction {
 
 
     modifier duringCommitment {
-        require(phase == Phase.Commitment);
-        require((block.number - startPhaseBlock) <= commitment_len);
+        require(phase == Phase.Commitment, "Commitment phase not started yet");
+        require((block.number - startPhaseBlock) <= commitment_len, "Commitment phase is ended");
         _;
     }
 
     modifier duringWithdrawal {
-        require(phase == Phase.Withdrawal);
-        require((block.number - startPhaseBlock) <= withdrawal_len);
+        require(phase == Phase.Withdrawal, "Withdrawal phase not started yet");
+        require((block.number - startPhaseBlock) <= withdrawal_len, "Withdrawal phase is ended");
         _;
     }
 
     modifier duringOpening {
-        require(phase == Phase.Opening);
-        require((block.number - startPhaseBlock) <= opening_len);
+        require(phase == Phase.Opening, "Opening phase not started yet");
+        require((block.number - startPhaseBlock) <= opening_len, "Opening phase is ended");
         _;
     }
 
 
     function activateAuction() public onlySeller {
-        require(phase == Phase.GracePeriod);
-        //20 blocchi sono 5 minuti (+-)
-        require(block.number - startPhaseBlock > 2);
+        require(phase == Phase.GracePeriod, "To activate the contract you must be in the Grace Period");
+        require(block.number - startPhaseBlock > 20, "Grace period is not finished yet");
 
         phase = Phase.Commitment;
         description.startBlock = block.number;
@@ -103,8 +102,8 @@ contract VickreyAuction is Auction {
 
 
     function startWithdrawal() public onlySeller {
-        require(phase == Phase.Commitment);
-        require((block.number - startPhaseBlock) > commitment_len);
+        require(phase == Phase.Commitment, "You can't start withdrawal before commitment");
+        require((block.number - startPhaseBlock) > commitment_len, "Commitment period is not finished yet");
 
         phase = Phase.Withdrawal;
         startPhaseBlock = block.number;
@@ -114,8 +113,8 @@ contract VickreyAuction is Auction {
 
 
     function startOpening() public onlySeller {
-        require(phase == Phase.Withdrawal);
-        require((block.number - startPhaseBlock) > withdrawal_len);
+        require(phase == Phase.Withdrawal, "You can't start opening before withdrawal");
+        require((block.number - startPhaseBlock) > withdrawal_len, "Commitment period is not finished yet");
 
         phase = Phase.Opening;
         startPhaseBlock = block.number;
@@ -126,34 +125,34 @@ contract VickreyAuction is Auction {
 
 
     function finalize() public onlySeller {
-        require(phase == Phase.Opening);
-        require((block.number - startPhaseBlock) > opening_len);
+        require(phase == Phase.Opening, "You can't finalize the contract before opening");
+        require((block.number - startPhaseBlock) > opening_len, "Opening period is not finished yet");
 
         if (highestBidder != address(0)) {
             description.winnerAddress = highestBidder;
             description.winnerBid = secondHighestBid;
-            
+
             //refund the winner
             highestBidder.transfer(highestBid - secondHighestBid);
-        
+
             //send ehter to the seller of the item
             description.seller.transfer(description.winnerBid);
         }
-        
+
         phase = Phase.Finished;
         emit auctionFinished(description.winnerAddress, description.winnerBid, address(this).balance);
-        
+
     }
 
 
 
 
     function bid(bytes32 _bidHash) public duringCommitment payable {
-        require(msg.value >= min_deposit);
-        
+        require(msg.value >= min_deposit, "The value sent is not sufficient");
+
         //ensure that is the sender haven't sent another bid previously
-        require(bids[msg.sender].value == 0);
-        
+        require(bids[msg.sender].value == 0, "You have already submitted a bid");
+
         Bid memory _bid;
         _bid.hash = _bidHash;
         _bid.deposit = msg.value;
@@ -164,7 +163,7 @@ contract VickreyAuction is Auction {
 
 
     function withdrawal() public duringWithdrawal {
-        require(bids[msg.sender].deposit > 0);
+        require(bids[msg.sender].deposit > 0, "You don't have any deposit to withdraw");
 
         uint bidderRefund = bids[msg.sender].deposit / 2;
         uint sellerRefund = bids[msg.sender].deposit - bidderRefund;
@@ -179,13 +178,13 @@ contract VickreyAuction is Auction {
 
 
     function open(bytes32 _nonce) public duringOpening payable {
-        require(keccak256(abi.encodePacked(msg.value, _nonce)) == bids[msg.sender].hash);
+        require(keccak256(abi.encodePacked(msg.value, _nonce)) == bids[msg.sender].hash, "Something went wrong");
 
         //refund the deposit
         uint deposit = bids[msg.sender].deposit;
         bids[msg.sender].deposit = 0;
         msg.sender.transfer(deposit);
-        
+
         //serve??
         bids[msg.sender].value = msg.value;
         bids[msg.sender].nonce = _nonce;
@@ -194,10 +193,10 @@ contract VickreyAuction is Auction {
         if (firstOpen) {
             highestBidder = msg.sender;
             highestBid = msg.value;
-            
+
             //if there is only one bid, the winner pays at least the reservePrice
             secondHighestBid = reservePrice;
-            
+
             firstOpen = false;
         } else {
             //if the msg.value is more than the highest bid
@@ -215,7 +214,7 @@ contract VickreyAuction is Auction {
             } else {
                 //check whether the msg.value is higher than the second highest bid
                 if (msg.value > secondHighestBid) secondHighestBid = msg.value;
-                
+
                 //since the current opening is not the highest we can refund the sender
                 refund(msg.sender, msg.value);
             }
