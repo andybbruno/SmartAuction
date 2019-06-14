@@ -11,7 +11,7 @@ contract VickreyAuction is Auction {
         Opening,
         Finished
     }
-    //remove public
+
     Phase public phase;
 
     uint startPhaseBlock;
@@ -32,7 +32,7 @@ contract VickreyAuction is Auction {
         bytes32 hash;
         uint deposit;
     }
-    //remove public
+    
     mapping(address => Bid) bids;
 
     event withdrawalStarted();

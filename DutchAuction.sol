@@ -1,4 +1,4 @@
-pragma solidity ^ 0.5.1;
+pragma solidity ^ 0.5 .1;
 
 import "./Auction.sol";
 import "./Strategy.sol";
@@ -22,9 +22,9 @@ contract DutchAuction is Auction {
 
 
     constructor(
-        string memory _itemName, 
-        uint _reservePrice, 
-        uint _initialPrice, 
+        string memory _itemName,
+        uint _reservePrice,
+        uint _initialPrice,
         Strategy _strategy
     ) public {
         description.seller = msg.sender;
@@ -43,11 +43,8 @@ contract DutchAuction is Auction {
 
 
     function activateAuction() public onlySeller {
-        require(state == State.GracePeriod);
-
-        //20 blocchi sono 5 minuti (+-)
-        require(block.number - creationBlock > 2);
-
+        require(state == State.GracePeriod, "To activate the contract you must be in the Grace Period");
+        require(block.number - creationBlock > 20, "Grace period is not finished yet");
 
         state = State.Active;
         description.startBlock = block.number;
@@ -55,44 +52,22 @@ contract DutchAuction is Auction {
         emit auctionStarted();
     }
 
-    function validateAuction() internal {
-        require(state == State.Active);
-        state = State.Validating;
-    }
-
-    function finalize() public onlySeller {
-        require(state == State.Validating);
-
-        //faccio passare 6 blocchi così mi assicuro di stare sulla catena più lunga
-        //questo perchè potrebbe capitare che due persone facciano bid nello stesso istante
-        require(block.number - winnerBlock > 6);
-
-        state = State.Finished;
-        emit auctionFinished(description.winnerAddress, description.winnerBid, address(this).balance);
-
-        description.seller.transfer(description.winnerBid);
-
-    }
-
     function getActualPrice() public returns(uint) {
-        computePrice();
-        return actualPrice;
-    }
-
-    function computePrice() internal {
         uint deltaBlocks = description.startBlock - block.number;
         uint tmp = strategy.getPrice(actualPrice, -deltaBlocks);
 
-        if (tmp <= reservePrice)
+        if (tmp <= reservePrice) {
             actualPrice = reservePrice;
-        else
+        } else {
             actualPrice = tmp;
+        }
+
+        return actualPrice;
     }
 
-
     function bid() public payable {
-        require(state == State.Active);
-        require(msg.value >= getActualPrice());
+        require(state == State.Active, "This contract is not active yet");
+        require(msg.value >= getActualPrice(), "The value sent is not sufficient");
 
         description.winnerAddress = msg.sender;
         description.winnerBid = msg.value;
@@ -100,5 +75,21 @@ contract DutchAuction is Auction {
         winnerBlock = block.number;
 
         validateAuction();
+    }
+
+    function validateAuction() internal {
+        require(state == State.Active, "You can't validate a contract before activating it");
+        state = State.Validating;
+    }
+
+    function finalize() public onlySeller {
+        require(state == State.Validating, "You can't finalize a contract before validation");
+        require(block.number - winnerBlock > 12, "For security reasons, you need to wait to validate the contract");
+
+        state = State.Finished;
+        emit auctionFinished(description.winnerAddress, description.winnerBid, address(this).balance);
+
+        description.seller.transfer(description.winnerBid);
+
     }
 }
