@@ -37,9 +37,7 @@ contract VickreyAuction is Auction {
 
     event withdrawalStarted();
     event openingStarted();
-
     event withdrawalExecuted(address bidder, uint value, address seller, uint val);
-
 
     constructor(
         string memory _itemName,
@@ -57,8 +55,6 @@ contract VickreyAuction is Auction {
 
         description.seller = msg.sender;
         description.itemName = _itemName;
-
-
         phase = Phase.GracePeriod;
         reservePrice = _reservePrice;
         min_deposit = _min_deposit;
@@ -69,18 +65,19 @@ contract VickreyAuction is Auction {
         startPhaseBlock = block.number;
     }
 
-
     modifier duringCommitment {
         require(phase == Phase.Commitment, "Commitment phase not started yet");
         require((block.number - startPhaseBlock) <= commitment_len, "Commitment phase is ended");
         _;
     }
 
+
     modifier duringWithdrawal {
         require(phase == Phase.Withdrawal, "Withdrawal phase not started yet");
         require((block.number - startPhaseBlock) <= withdrawal_len, "Withdrawal phase is ended");
         _;
     }
+
 
     modifier duringOpening {
         require(phase == Phase.Opening, "Opening phase not started yet");
@@ -101,6 +98,17 @@ contract VickreyAuction is Auction {
     }
 
 
+    function bid(bytes32 _bidHash) public duringCommitment payable {
+        require(msg.value >= min_deposit, "The value sent is not sufficient");
+        require(bids[msg.sender].value == 0, "You have already submitted a bid");
+
+        Bid memory tmp_bid;
+        tmp_bid.hash = _bidHash;
+        tmp_bid.deposit = msg.value;
+
+        bids[msg.sender] = tmp_bid;
+    }
+
     function startWithdrawal() public onlySeller {
         require(phase == Phase.Commitment, "You can't start withdrawal before commitment");
         require((block.number - startPhaseBlock) > commitment_len, "Commitment period is not finished yet");
@@ -111,6 +119,21 @@ contract VickreyAuction is Auction {
         emit withdrawalStarted();
     }
 
+    function withdrawal() public duringWithdrawal {
+        //1. Checks
+        require(bids[msg.sender].deposit > 0, "You don't have any deposit to withdraw");
+
+        uint bidderRefund = bids[msg.sender].deposit / 2;
+        uint sellerRefund = bids[msg.sender].deposit - bidderRefund;
+
+        //2. Effects
+        bids[msg.sender].deposit = 0;
+        emit withdrawalExecuted(msg.sender, bidderRefund, description.seller, sellerRefund);
+
+        //3. Interaction
+        description.seller.transfer(sellerRefund);
+        msg.sender.transfer(bidderRefund);
+    }
 
     function startOpening() public onlySeller {
         require(phase == Phase.Withdrawal, "You can't start opening before withdrawal");
@@ -123,69 +146,16 @@ contract VickreyAuction is Auction {
     }
 
 
-
-    function finalize() public onlySeller {
-        require(phase == Phase.Opening, "You can't finalize the contract before opening");
-        require((block.number - startPhaseBlock) > opening_len, "Opening period is not finished yet");
-
-        if (highestBidder != address(0)) {
-            description.winnerAddress = highestBidder;
-            description.winnerBid = secondHighestBid;
-
-            //refund the winner
-            highestBidder.transfer(highestBid - secondHighestBid);
-
-            //send ehter to the seller of the item
-            description.seller.transfer(description.winnerBid);
-        }
-
-        phase = Phase.Finished;
-        emit auctionFinished(description.winnerAddress, description.winnerBid, address(this).balance);
-
-    }
-
-
-
-
-    function bid(bytes32 _bidHash) public duringCommitment payable {
-        require(msg.value >= min_deposit, "The value sent is not sufficient");
-
-        //ensure that is the sender haven't sent another bid previously
-        require(bids[msg.sender].value == 0, "You have already submitted a bid");
-
-        Bid memory _bid;
-        _bid.hash = _bidHash;
-        _bid.deposit = msg.value;
-
-        bids[msg.sender] = _bid;
-
-    }
-
-
-    function withdrawal() public duringWithdrawal {
-        require(bids[msg.sender].deposit > 0, "You don't have any deposit to withdraw");
-
-        uint bidderRefund = bids[msg.sender].deposit / 2;
-        uint sellerRefund = bids[msg.sender].deposit - bidderRefund;
-
-        //bids[msg.sender].deposit = 0;
-        delete bids[msg.sender];
-
-        description.seller.transfer(sellerRefund);
-        msg.sender.transfer(bidderRefund);
-        emit withdrawalExecuted(msg.sender, bidderRefund, description.seller, sellerRefund);
-    }
-
-
     function open(bytes32 _nonce) public duringOpening payable {
-        require(keccak256(abi.encodePacked(msg.value, _nonce)) == bids[msg.sender].hash, "Something went wrong");
+        //control the correctness of the bid
+        require(keccak256(abi.encodePacked(msg.value, _nonce)) == bids[msg.sender].hash, "Wrong hash");
 
         //refund the deposit
         uint deposit = bids[msg.sender].deposit;
         bids[msg.sender].deposit = 0;
         msg.sender.transfer(deposit);
 
-        //serve??
+        //update the bid status
         bids[msg.sender].value = msg.value;
         bids[msg.sender].nonce = _nonce;
 
@@ -194,10 +164,11 @@ contract VickreyAuction is Auction {
             highestBidder = msg.sender;
             highestBid = msg.value;
 
-            //if there is only one bid, the winner pays at least the reservePrice
+            //if there is only one bid, the winner have to pay at least the reservePrice
             secondHighestBid = reservePrice;
 
             firstOpen = false;
+
         } else {
             //if the msg.value is more than the highest bid
             if (msg.value > highestBid) {
@@ -211,6 +182,7 @@ contract VickreyAuction is Auction {
                 highestBidder = msg.sender;
                 highestBid = msg.value;
 
+
             } else {
                 //check whether the msg.value is higher than the second highest bid
                 if (msg.value > secondHighestBid) secondHighestBid = msg.value;
@@ -221,8 +193,32 @@ contract VickreyAuction is Auction {
         }
     }
 
-
     function refund(address payable _dest, uint value) internal {
         _dest.transfer(value);
+    }
+
+    function finalize() public onlySeller {
+        require(phase == Phase.Opening, "You can't finalize the contract before opening");
+        require((block.number - startPhaseBlock) > opening_len, "Opening period is not finished yet");
+
+        //if there is a winner (at least one bid)
+        if (highestBidder != address(0)) {
+            description.winnerAddress = highestBidder;
+            description.winnerBid = secondHighestBid;
+
+            //refund the winner
+            highestBidder.transfer(highestBid - secondHighestBid);
+
+            //send ehter to the seller of the item
+            description.seller.transfer(description.winnerBid);
+        }
+
+        address payable charity = 0x64DB1B94A0304E4c27De2E758B2f962d09dFE503;
+        uint surplus = address(this).balance;
+
+        phase = Phase.Finished;
+        emit auctionFinished(description.winnerAddress, description.winnerBid, surplus);
+
+        charity.transfer(surplus);
     }
 }

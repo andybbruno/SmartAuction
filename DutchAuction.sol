@@ -20,7 +20,6 @@ contract DutchAuction is Auction {
     }
     State state;
 
-
     constructor(
         string memory _itemName,
         uint _reservePrice,
@@ -30,18 +29,12 @@ contract DutchAuction is Auction {
         description.seller = msg.sender;
         description.itemName = _itemName;
         state = State.GracePeriod;
-
         reservePrice = _reservePrice;
         initialPrice = _initialPrice;
         actualPrice = _initialPrice;
-
         strategy = _strategy;
-
         creationBlock = block.number;
     }
-
-
-
     function activateAuction() public onlySeller {
         require(state == State.GracePeriod, "To activate the contract you must be in the Grace Period");
         require(block.number - creationBlock > 20, "Grace period is not finished yet");
@@ -51,6 +44,7 @@ contract DutchAuction is Auction {
 
         emit auctionStarted();
     }
+
 
     function getActualPrice() public returns(uint) {
         uint deltaBlocks = description.startBlock - block.number;
@@ -64,6 +58,7 @@ contract DutchAuction is Auction {
 
         return actualPrice;
     }
+
 
     function bid() public payable {
         require(state == State.Active, "This contract is not active yet");
@@ -81,6 +76,7 @@ contract DutchAuction is Auction {
         require(state == State.Active, "You can't validate a contract before activating it");
         state = State.Validating;
     }
+
 
     function finalize() public onlySeller {
         require(state == State.Validating, "You can't finalize a contract before validation");

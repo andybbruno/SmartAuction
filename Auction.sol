@@ -12,7 +12,6 @@ contract Auction {
 
     Description public description;
 
-
     modifier onlySeller() {
         require(msg.sender == description.seller, "Only the seller can run this function");
         _;
@@ -21,8 +20,6 @@ contract Auction {
     event auctionStarted();
     event auctionFinished(address winnerAddress, uint winnerBid, uint surplusFounds);
 
-
     function activateAuction() public;
     function finalize() public;
 }
-

@@ -162,26 +162,38 @@ Now let's analyze the \url{bid} function. At the beginning of the function, we r
 
 \newpage
 \section{VickreyAuction.sol}
-This kind of auction involves an initial phase in which all participants submit their bid in a sealed envelope. Afterwards, all these envelope are opened and the person who did the highest bid win the auction by paying the second highest price. Due to possible fraud, people willing to submit their bid, must sent a deposit. This measure should discourage people in such unfair practices.
+This kind of auction involves an initial phase in which all participants submit their bid in a sealed envelope. Afterwards, all these envelope are opened and the person who did the highest bid, wins the auction by paying the second highest price. Due to possible fraud, people willing to submit their bid, must sent a deposit. This measure should discourage people in such unfair practices.
 
-Similarly to the \url{DutchAuction}, even the \url{VickreyAuction} extends the ``super-contract'' \url{Auction}, hence it inherits all the fields of its father. Furthermore, in this way, it respect the \emph{Template-Method pattern}.  
+Similarly to the \url{DutchAuction}, the \url{VickreyAuction} as well extends the ``super-contract'' \url{Auction}, hence it inherits all the fields of its ``father''. Furthermore, in this way, the \emph{Template-Method pattern} is respected.  
 
 
 \subsection{Phases}
 The \url{VickreyAuction} starts with a \emph{Grace Period} of 5 minutes in the same way of the \url{DutchAuction}. The second phase called \emph{Commitment}, is the period in which people can submit their bids. The novelty is the \emph{Withdrawal} phase. Basically, during this phase the bidders can withdrawn their bids and get only half of their deposit back. Then we have the \emph{Opening} phase, that is the period in which all the bids are opened, and lastly the closing of the contract.
 
 \begin{figure}[h]
-\includegraphics[width=0.95\linewidth]{images/vickreyPhases.png}
+\includegraphics[width=0.9\linewidth]{images/vickreyPhases.png}
 \centering
 \caption{Phases of the \emph{Vickrey} auction}
 \label{fig:dutchConstructor}
 \end{figure}
 
+
 \subsection{Constructor}
+To create a Vickrey auction, few parameters are needed. In particular, the lengths of all the phases are required, as well as both the reserve price and the minimum deposit. Note from Figure \ref{fig:vickreyConstructor} that in this implementation, the minimum deposit must be greater or equal to the reserve price.
+
+
+
+\begin{figure}[h]
+\includegraphics[width=\linewidth]{images/vickreyConstructor.png}
+\centering
+\caption{Source code of \emph{VickreyAuction} constructor}
+\label{fig:vickreyConstructor}
+\end{figure}
+
 
 \newpage
-\subsection{GenerateBid}
-To help people in making bids, we create a contract called \url{GenerateBid}. As you can see from Figure \ref{fig:GenerateBid}, there is a function called \url{generateBid}, that given an integer value in input (the desired bid), it return a 32-bit nonce obtained from the timestamp, and also the hash of the tuple \(<bid \, , nonce>\). Of course, it will be the responsibility of the person who did the bid, not to reveal neither his bid nor his nonce.
+\subsection{GenerateBid.sol}\label{genbid}
+To help people in making bids, we create a contract called \url{GenerateBid}. As you can see from Figure \ref{fig:GenerateBid}, there is a function called \url{generateBid}, that given an integer value in input (the desired bid), it returns a 32-bit nonce obtained from the timestamp, and also the hash of the tuple \(<bid \, , nonce>\). Of course, it will be the responsibility of the person who did the bid, not to reveal neither his bid nor his nonce.
 
 \begin{figure}[h]
 \includegraphics[width=0.7\linewidth]{images/generateBid.png}
@@ -189,6 +201,120 @@ To help people in making bids, we create a contract called \url{GenerateBid}. As
 \caption{Source code of \emph{GenerateBid} contract}
 \label{fig:GenerateBid}
 \end{figure}
+
+
+
+
+\newpage
+\subsection{Modifiers}
+Before going deeper in the function implementations, we need first to understand the modifiers declared inside the contract. This tool (the modifier), allow to execute some code before and after a functions. In particular, the code of the function will be executed when the \url{_;} symbols will occur.
+
+By exploiting the potentialities of modifiers, we defined a way to control whether the actual phase is the one desired.
+
+
+\begin{figure}[h]
+\includegraphics[width=\linewidth]{images/vickreyModifier.png}
+\centering
+\caption{Source code of \emph{VickreyAuction} modifiers}
+\label{fig:vickreyModifiers}
+\end{figure}
+
+
+\subsection{Commitment}
+As already explained in Section \ref{genbid} every \url{bid} is composed by three parameters:
+\begin{enumerate}
+\item the \url{uint} value of the bid;
+\item a \url{bytes32} nonce;
+\item the hash of \(<bid \, , nonce>\).
+\end{enumerate}
+Now, since the bids must be secret until the opening phase, the contract should not write any information about these bids on the blockchain. To make it possible, the function requires and stores only the hash. In this way, only during the opening phase, we ask for the value and the nonce, in order to verify the hash and thus the correctness of the bid. 
+
+Of course, to avoid misbehavior, people have to submit a deposit greater or equal the minimum deposit decided at deploy time by the seller.
+
+Note that all these bids are stored in a non-public \url{mapping(address => Bid)} called \emph{bids}.
+
+\begin{figure}[h]
+\includegraphics[width=\linewidth]{images/bid.png}
+\centering
+\caption{Source code of \emph{bid} function}
+\label{fig:vickreyBid}
+\end{figure}
+
+
+\newpage
+\subsection{Withdrawal}
+Another interesting aspect of the Vickrey auction, is the \emph{Withdrawal} phase. During this period of time, people can retire their bids, but only half of the deposit will be reimbursed. 
+
+As Wohrer et al. \cite{soliditypattern} suggest, when a contract calls another contract,  it  hands  over  control  to  that other  contract.  The  called  contract  can then, in turn, re-enter the contract by which it was called and try to manipulate its state or hijack the control flow through malicious code. A solution is the \emph{Checks-Effects-Interaction pattern}. Basically, all the calls to external contracts, are always placed at the end of the function. This way, the possible attack surface is limited. 
+
+This pattern is divided in three phases: first, check all the preconditions, then make changes to the contract’s state, and finally interact with other contracts.
+
+\begin{figure}[h]
+\includegraphics[width=\linewidth]{images/withdrawal.png}
+\centering
+\caption{Source code of \emph{withdrawal} function}
+\label{fig:vickreyWith}
+\end{figure}
+
+
+\newpage
+\subsection{Opening}
+As written in the requirements, in the opening phase all bidders should reveal their bid by sending the nonce used previously. At the top of Figure \ref{fig:vickreyOpen}, we can see that the only parameter required by the \url{open} function is a \url{bytes32} nonce. If bidders used our generator (see \ref{genbid}), this nonce value can be easily pasted and sent to the contract. The first control that is done, is the correctness of the hash previously sent, by checking the hash of the tuple \(<bid \, , nonce>\). If this constraint is respected, then the bidder can be refunded. Afterwards, we check whether the current bid is the first or not, and then by looking at the value sent, we declare the winner and the highest second bid. Note that in case of overwriting of the winner, there is a refund the old highest bidder.
+
+\begin{figure}[h]
+\includegraphics[width=0.92\linewidth]{images/opening.png}
+\centering
+\caption{Source code of \emph{open} function}
+\label{fig:vickreyOpen}
+\end{figure}
+
+
+\newpage
+\subsection{Finalize}
+This function is the last step before closing definitely the contract. If there is at least a bid, or in other words, if there is a winner, refund him with the difference between his bid and the second highest. Afterwards close the auction, send the money to the seller and if there is a surplus (for instance someone who sent a bid, but forgot to opening it), then transfer this money to a charity address.
+
+\begin{figure}[h]
+\includegraphics[width=0.9\linewidth]{images/finalize.png}
+\centering
+\caption{Source code of \emph{finalize} function}
+\label{fig:vickreyFinalize}
+\end{figure}
+
+
+\subsection{Gas Evaluation}
+
+\begin{table}
+\setlength{\tabcolsep}{10pt}
+\setlength{\abovecaptionskip}{10pt}
+\centering
+\begin{tabular}{| c | c | c | c |} 
+ \hline
+ \textbf{Function} & \textbf{Transaction Cost} & \textbf{Execution Cost} & \textbf{Caller} \\
+ \hline
+ \emph{constructor} & 2226512 & 1664784 & Seller \\ 
+ \hline
+ \url{activateAuction()} & 68350 & 47078 & Seller \\ 
+ \hline
+ \url{bid()} & 65790 & 42342 & All \\ 
+ \hline
+ \url{startWithdrawal()} & 33619 & 12347 & Seller \\
+ \hline
+ \url{withdrawal()} & 30811 & 24539 & All \\
+ \hline
+ \url{startOpening()} & 33685 & 12413 & Seller \\
+ \hline
+ \url{open()} & 114170 & 120722 & All \\
+ \hline
+ \url{finalize()} & 119843 & 98571 & Seller \\
+ \hline
+ \hline
+ \hline
+ \textbf{\emph{Total}} & 2578610 & 2022796 & \\ \hline
+\end{tabular}
+\caption{Gas consumption of \emph{VickreyAuction} contract}
+\label{table:2}
+\end{table}
+
 
 \newpage
 \begin{thebibliography}{4}
@@ -198,6 +324,10 @@ To help people in making bids, we create a contract called \url{GenerateBid}. As
 
 \bibitem{etherscan} Block Explorer and Analytics Platform for Ethereum, 
 \url{https://etherscan.io/chart/blocktime}
+
+\bibitem{soliditypattern}
+Wohrer, Maximilian, and Uwe Zdun. "Smart contracts: security patterns in the ethereum ecosystem and solidity." 2018 \emph{International Workshop on Blockchain Oriented Software Engineering (IWBOSE)}. IEEE, 2018.
+
 
 \end{thebibliography}
 

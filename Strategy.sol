@@ -4,7 +4,6 @@ contract Strategy {
     function getPrice(uint _actualPrice, uint _deltaBlocks) public view returns(uint);
 }
 
-//dura fino a : x blocchi
 contract NormalStrategy is Strategy {
     function getPrice(uint _actualPrice, uint _deltaBlocks) public view returns(uint) {
         uint tmp = _actualPrice - _deltaBlocks;
@@ -15,7 +14,6 @@ contract NormalStrategy is Strategy {
     }
 }
 
-//dura fino a : x/2 blocchi
 contract FastStrategy is Strategy {
     function getPrice(uint _actualPrice, uint _deltaBlocks) public view returns(uint) {
         uint tmp = _actualPrice - (2 * _deltaBlocks);
@@ -26,7 +24,6 @@ contract FastStrategy is Strategy {
     }
 }
 
-//dura fino a : 2x blocchi
 contract SlowStrategy is Strategy {
     function getPrice(uint _actualPrice, uint _deltaBlocks) public view returns(uint) {
         uint tmp = _actualPrice - (_deltaBlocks / 2);
