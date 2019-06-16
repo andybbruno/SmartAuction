@@ -71,7 +71,7 @@ We were asked to develop multiple method to compute the decrease of the price. I
 \begin{figure}[h]
 \includegraphics[width=\linewidth]{images/strategycode.png}
 \centering
-\caption{Source code of \emph{Strategy} abstact class}
+\caption{Source code of \emph{Strategy} abstract class}
 \label{fig:strategycode}
 \end{figure}
 
@@ -86,7 +86,7 @@ Afterwards, we create three sub-contracts implementing the \url{Strategy} contra
 
 \newpage
 \subsection{Status} \label{status}
-Although in the Dutch auction there are only three explicit phases, for security reasons we added a new phase called \emph{Verification}. Since there could be the case in which two people make simultaneously a bid, as Figure \ref{fig:dutchStatus} shows, before closing the contract, we verify that at least 12 blocks \cite{ethBlog} have been confirmed. This restriction is essential to ensure that all miners own the same status of the contract and thus the same winner.
+Although in the Dutch auction there are only three explicit phases, for security reasons we added a new phase called \emph{Validation}. Since there could be the case in which two people make simultaneously a bid, as Figure \ref{fig:dutchStatus} shows, before closing the contract, we verify that at least 12 blocks \cite{ethBlog} have been confirmed. This restriction is essential to ensure that all miners own the same status of the contract and thus the same winner.
 
 \begin{figure}[h]
 \includegraphics[width=220pt]{images/dutchStatus.png}
@@ -162,7 +162,7 @@ Now let's analyze the \url{bid} function. At the beginning of the function, we r
 
 \newpage
 \section{VickreyAuction.sol}
-This kind of auction involves an initial phase in which all participants submit their bid in a sealed envelope. Afterwards, all these envelope are opened and the person who did the highest bid, wins the auction by paying the second highest price. Due to possible fraud, people willing to submit their bid, must sent a deposit. This measure should discourage people in such unfair practices.
+This kind of auction involves an initial phase in which all participants submit their bid in a sealed envelope. Afterwards, all these envelopes are opened and the person who did the highest bid, wins the auction by paying the second highest price. Due to possible fraud, people willing to submit their bid, must sent a deposit. This measure should discourage people in such unfair practices.
 
 Similarly to the \url{DutchAuction}, the \url{VickreyAuction} as well extends the ``super-contract'' \url{Auction}, hence it inherits all the fields of its ``father''. Furthermore, in this way, the \emph{Template-Method pattern} is respected.  
 
@@ -207,7 +207,7 @@ To help people in making bids, we create a contract called \url{GenerateBid}. As
 
 \newpage
 \subsection{Modifiers}
-Before going deeper in the function implementations, we need first to understand the modifiers declared inside the contract. This tool (the modifier), allow to execute some code before and after a functions. In particular, the code of the function will be executed when the \url{_;} symbols will occur.
+Before going deeper in the function implementations, we need first to understand the modifiers declared inside the contract. This tool (the modifier), allow to execute some code before and after a function. In particular, the code of the function will be executed when the \url{_;} symbols will occur.
 
 By exploiting the potentialities of modifiers, we defined a way to control whether the actual phase is the one desired.
 
@@ -227,7 +227,7 @@ As already explained in Section \ref{genbid} every \url{bid} is composed by thre
 \item a \url{bytes32} nonce;
 \item the hash of \(<bid \, , nonce>\).
 \end{enumerate}
-Now, since the bids must be secret until the opening phase, the contract should not write any information about these bids on the blockchain. To make it possible, the function requires and stores only the hash. In this way, only during the opening phase, we ask for the value and the nonce, in order to verify the hash and thus the correctness of the bid. 
+Now, since the bids must be secret until the opening phase, the contract should not write any information about these bids on the blockchain. To make it possible, the function requires and stores only the hash. In this way, only during the opening phase, we require both the value and the nonce, in order to verify the hash and thus the correctness of the bid. 
 
 Of course, to avoid misbehavior, people have to submit a deposit greater or equal the minimum deposit decided at deploy time by the seller.
 
@@ -271,10 +271,10 @@ As written in the requirements, in the opening phase all bidders should reveal t
 
 \newpage
 \subsection{Finalize}
-This function is the last step before closing definitely the contract. If there is at least a bid, or in other words, if there is a winner, refund him with the difference between his bid and the second highest. Afterwards close the auction, send the money to the seller and if there is a surplus (for instance someone who sent a bid, but forgot to opening it), then transfer this money to a charity address.
+This function is the last step before closing definitely the contract. If there is at least a bid, or in other words, if there is a winner, we refund him with the difference between his bid and the second highest. Afterwards we close the auction, we send money to the seller and if there is a surplus (for instance someone who sent a bid, but forgot to opening it), we transfer this money to a charity address.
 
 \begin{figure}[h]
-\includegraphics[width=0.9\linewidth]{images/finalize.png}
+\includegraphics[width=0.85\linewidth]{images/finalize.png}
 \centering
 \caption{Source code of \emph{finalize} function}
 \label{fig:vickreyFinalize}
